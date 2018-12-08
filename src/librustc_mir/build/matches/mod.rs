@@ -520,7 +520,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 let pattern_ref_binding; // sidestep temp lifetime limitations.
                 let binding_user_ty = match mode {
                     BindingMode::ByValue => { pattern_user_ty }
-                    BindingMode::ByRef(..) => {
+                    BindingMode::ByRef(_) => {
                         // If this is a `ref` binding (e.g., `let ref
                         // x: T = ..`), then the type of `x` is not
                         // `T` but rather `&T`.
@@ -630,7 +630,7 @@ struct Binding<'tcx> {
     var_id: NodeId,
     var_ty: Ty<'tcx>,
     mutability: Mutability,
-    binding_mode: BindingMode<'tcx>,
+    binding_mode: BindingMode,
 }
 
 /// Indicates that the type of `source` must be a subtype of the
@@ -1360,7 +1360,6 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         // Assign each of the bindings. Since we are binding for a
         // guard expression, this will never trigger moves out of the
         // candidate.
-        let re_empty = self.hir.tcx().types.re_empty;
         for binding in bindings {
             let source_info = self.source_info(binding.span);
 
@@ -1376,11 +1375,11 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
             self.schedule_drop_for_binding(binding.var_id, binding.span, RefWithinGuard);
             match binding.binding_mode {
                 BindingMode::ByValue => {
-                    let rvalue = Rvalue::Ref(re_empty, BorrowKind::Shared, binding.source.clone());
+                    let rvalue = Rvalue::Ref(BorrowKind::Shared, binding.source.clone());
                     self.cfg
                         .push_assign(block, source_info, &ref_for_guard, rvalue);
                 }
-                BindingMode::ByRef(region, borrow_kind) => {
+                BindingMode::ByRef(borrow_kind) => {
                     // Tricky business: For `ref id` and `ref mut id`
                     // patterns, we want `id` within the guard to
                     // correspond to a temp of type `& &T` or `& &mut
@@ -1420,10 +1419,10 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                             allow_two_phase_borrow: true,
                         },
                     };
-                    let rvalue = Rvalue::Ref(region, borrow_kind, binding.source.clone());
+                    let rvalue = Rvalue::Ref(borrow_kind, binding.source.clone());
                     self.cfg
                         .push_assign(block, source_info, &val_for_guard, rvalue);
-                    let rvalue = Rvalue::Ref(region, BorrowKind::Shared, val_for_guard);
+                    let rvalue = Rvalue::Ref(BorrowKind::Shared, val_for_guard);
                     self.cfg
                         .push_assign(block, source_info, &ref_for_guard, rvalue);
                 }
@@ -1451,8 +1450,8 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 BindingMode::ByValue => {
                     Rvalue::Use(self.consume_by_copy_or_move(binding.source.clone()))
                 }
-                BindingMode::ByRef(region, borrow_kind) => {
-                    Rvalue::Ref(region, borrow_kind, binding.source.clone())
+                BindingMode::ByRef( borrow_kind) => {
+                    Rvalue::Ref(borrow_kind, binding.source.clone())
                 }
             };
             self.cfg.push_assign(block, source_info, &local, rvalue);
@@ -1498,7 +1497,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         let tcx = self.hir.tcx();
         let binding_mode = match mode {
             BindingMode::ByValue => ty::BindingMode::BindByValue(mutability.into()),
-            BindingMode::ByRef { .. } => ty::BindingMode::BindByReference(mutability.into()),
+            BindingMode::ByRef(_) => ty::BindingMode::BindByReference(mutability.into()),
         };
         let local = LocalDecl::<'tcx> {
             mutability,
@@ -1604,7 +1603,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
 
         for (matched_place, borrow_kind) in all_fake_borrows {
             let borrowed_input =
-                Rvalue::Ref(tcx.types.re_empty, borrow_kind, matched_place.clone());
+                Rvalue::Ref(borrow_kind, matched_place.clone());
             let borrowed_input_ty = borrowed_input.ty(&self.local_decls, tcx);
             let borrowed_input_temp = self.temp(borrowed_input_ty, source_info.span);
             self.cfg.push_assign(

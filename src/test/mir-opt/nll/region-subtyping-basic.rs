@@ -32,16 +32,19 @@ fn main() {
 
 // END RUST SOURCE
 // START rustc.main.nll.0.mir
-// | '_#2r    | U0 | {bb2[0..=5], bb3[0..=1]}
-// | '_#3r    | U0 | {bb2[1..=5], bb3[0..=1]}
-// | '_#4r    | U0 | {bb2[4..=5], bb3[0..=1]}
+// | '_#2r    | U0 | {bb2[1..=5], bb3[0..=1]}
+// | '_#3r    | U0 | {bb2[4..=5], bb3[0..=1]}
+// | '_#4r    | U0 | {bb2[0..=5], bb3[0..=1]}
+// ...
+// | &'_#4r _1[_3] at bb2[0]
 // END rustc.main.nll.0.mir
 // START rustc.main.nll.0.mir
-// let _6: &'_#4r usize;
+// let _6: &'_#3r usize;
 // ...
-// let _2: &'_#3r usize;
+// let _2: &'_#2r usize;
 // ...
-// _2 = &'_#2r _1[_3];
+// bb2: {
+// _2 = &_1[_3];
 // ...
 // _6 = _2;
 // END rustc.main.nll.0.mir

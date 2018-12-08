@@ -459,7 +459,6 @@ impl<'a, 'tcx> Inliner<'a, 'tcx> {
                 let dest = if dest_needs_borrow(&destination.0) {
                     debug!("Creating temp for return destination");
                     let dest = Rvalue::Ref(
-                        self.tcx.types.re_erased,
                         BorrowKind::Mut { allow_two_phase_borrow: false },
                         destination.0);
 
@@ -663,7 +662,7 @@ impl<'a, 'tcx> Integrator<'a, 'tcx> {
 impl<'a, 'tcx> MutVisitor<'tcx> for Integrator<'a, 'tcx> {
     fn visit_local(&mut self,
                    local: &mut Local,
-                   _ctxt: PlaceContext<'tcx>,
+                   _ctxt: PlaceContext,
                    _location: Location) {
         if *local == RETURN_PLACE {
             match self.destination {
@@ -684,7 +683,7 @@ impl<'a, 'tcx> MutVisitor<'tcx> for Integrator<'a, 'tcx> {
 
     fn visit_place(&mut self,
                     place: &mut Place<'tcx>,
-                    _ctxt: PlaceContext<'tcx>,
+                    _ctxt: PlaceContext,
                     _location: Location) {
 
         match place {

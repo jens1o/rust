@@ -18,7 +18,7 @@ use rustc::mir::{BinOp, BorrowKind, UserTypeAnnotation, Field, UnOp};
 use rustc::hir::def_id::DefId;
 use rustc::middle::region;
 use rustc::ty::subst::Substs;
-use rustc::ty::{AdtDef, UpvarSubsts, Region, Ty, Const};
+use rustc::ty::{AdtDef, UpvarSubsts, Ty, Const};
 use rustc::ty::layout::VariantIdx;
 use rustc::hir;
 use syntax::ast;
@@ -244,7 +244,6 @@ pub enum ExprKind<'tcx> {
         id: DefId,
     },
     Borrow {
-        region: Region<'tcx>,
         borrow_kind: BorrowKind,
         arg: ExprRef<'tcx>,
     },

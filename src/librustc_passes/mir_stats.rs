@@ -189,7 +189,7 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
 
     fn visit_place(&mut self,
                     place: &Place<'tcx>,
-                    context: mir_visit::PlaceContext<'tcx>,
+                    context: mir_visit::PlaceContext,
                     location: Location) {
         self.record("Place", place);
         self.record(match *place {
@@ -203,7 +203,7 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
 
     fn visit_projection(&mut self,
                         place: &PlaceProjection<'tcx>,
-                        context: mir_visit::PlaceContext<'tcx>,
+                        context: mir_visit::PlaceContext,
                         location: Location) {
         self.record("PlaceProjection", place);
         self.super_projection(place, context, location);

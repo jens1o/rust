@@ -251,7 +251,7 @@ impl<'a, 'mir, 'tcx, M: Machine<'a, 'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> 
                 )?;
             }
 
-            Ref(_, _, ref place) => {
+            Ref(_, ref place) => {
                 let src = self.eval_place(place)?;
                 let val = self.force_allocation(src)?;
                 self.write_immediate(val.to_ref(), dest)?;

@@ -193,7 +193,7 @@ impl MirPass for AddRetag {
                     // we also retag after taking a reference!
                     StatementKind::Assign(ref place, box ref rvalue) if needs_retag(place) => {
                         let two_phase = match rvalue {
-                            Rvalue::Ref(_, borrow_kind, _) =>
+                            Rvalue::Ref(borrow_kind, _) =>
                                 borrow_kind.allows_two_phase_borrow(),
                             _ => false
                         };

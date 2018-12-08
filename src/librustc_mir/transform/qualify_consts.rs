@@ -432,7 +432,7 @@ impl<'a, 'tcx> Qualifier<'a, 'tcx, 'tcx> {
             match *candidate {
                 Candidate::Ref(Location { block: bb, statement_index: stmt_idx }) => {
                     match self.mir[bb].statements[stmt_idx].kind {
-                        StatementKind::Assign(_, box Rvalue::Ref(_, _, Place::Local(index))) => {
+                        StatementKind::Assign(_, box Rvalue::Ref(_, Place::Local(index))) => {
                             promoted_temps.insert(index);
                         }
                         _ => {}
@@ -457,7 +457,7 @@ impl<'a, 'tcx> Qualifier<'a, 'tcx, 'tcx> {
 impl<'a, 'tcx> Visitor<'tcx> for Qualifier<'a, 'tcx, 'tcx> {
     fn visit_local(&mut self,
                    &local: &Local,
-                   _: PlaceContext<'tcx>,
+                   _: PlaceContext,
                    _: Location) {
         debug!("visit_local: local={:?}", local);
         let kind = self.mir.local_kind(local);
@@ -496,7 +496,7 @@ impl<'a, 'tcx> Visitor<'tcx> for Qualifier<'a, 'tcx, 'tcx> {
 
     fn visit_place(&mut self,
                     place: &Place<'tcx>,
-                    context: PlaceContext<'tcx>,
+                    context: PlaceContext,
                     location: Location) {
         debug!("visit_place: place={:?} context={:?} location={:?}", place, context, location);
         match *place {
@@ -652,7 +652,7 @@ impl<'a, 'tcx> Visitor<'tcx> for Qualifier<'a, 'tcx, 'tcx> {
     fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
         debug!("visit_rvalue: rvalue={:?} location={:?}", rvalue, location);
         // Recurse through operands and places.
-        if let Rvalue::Ref(region, kind, ref place) = *rvalue {
+        if let Rvalue::Ref(kind, ref place) = *rvalue {
             let mut is_reborrow = false;
             if let Place::Projection(ref proj) = *place {
                 if let ProjectionElem::Deref = proj.elem {
@@ -666,13 +666,13 @@ impl<'a, 'tcx> Visitor<'tcx> for Qualifier<'a, 'tcx, 'tcx> {
             if is_reborrow {
                 let ctx = match kind {
                     BorrowKind::Shared =>
-                        PlaceContext::NonMutatingUse(NonMutatingUseContext::SharedBorrow(region)),
+                        PlaceContext::NonMutatingUse(NonMutatingUseContext::SharedBorrow),
                     BorrowKind::Shallow =>
-                        PlaceContext::NonMutatingUse(NonMutatingUseContext::ShallowBorrow(region)),
+                        PlaceContext::NonMutatingUse(NonMutatingUseContext::ShallowBorrow),
                     BorrowKind::Unique =>
-                        PlaceContext::NonMutatingUse(NonMutatingUseContext::UniqueBorrow(region)),
+                        PlaceContext::NonMutatingUse(NonMutatingUseContext::UniqueBorrow),
                     BorrowKind::Mut { .. } =>
-                        PlaceContext::MutatingUse(MutatingUseContext::Borrow(region)),
+                        PlaceContext::MutatingUse(MutatingUseContext::Borrow),
                 };
                 self.super_place(place, ctx, location);
             } else {
@@ -696,7 +696,7 @@ impl<'a, 'tcx> Visitor<'tcx> for Qualifier<'a, 'tcx, 'tcx> {
             Rvalue::Discriminant(..) |
             Rvalue::Len(_) => {}
 
-            Rvalue::Ref(_, kind, ref place) => {
+            Rvalue::Ref(kind, ref place) => {
                 let ty = place.ty(self.mir, self.tcx).to_ty(self.tcx);
 
                 // Default to forbidding the borrow and/or its promotion,

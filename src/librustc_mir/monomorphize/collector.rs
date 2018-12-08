@@ -647,7 +647,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirNeighborCollector<'a, 'tcx> {
 
     fn visit_static(&mut self,
                     static_: &mir::Static<'tcx>,
-                    context: mir::visit::PlaceContext<'tcx>,
+                    context: mir::visit::PlaceContext,
                     location: Location) {
         debug!("visiting static {:?} @ {:?}", static_.def_id, location);
 

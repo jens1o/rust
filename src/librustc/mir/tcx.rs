@@ -229,9 +229,9 @@ impl<'tcx> Rvalue<'tcx> {
             Rvalue::Repeat(ref operand, count) => {
                 tcx.mk_array(operand.ty(local_decls, tcx), count)
             }
-            Rvalue::Ref(reg, bk, ref place) => {
+            Rvalue::Ref(bk, ref place) => {
                 let place_ty = place.ty(local_decls, tcx).to_ty(tcx);
-                tcx.mk_ref(reg,
+                tcx.mk_ref(tcx.types.re_erased,
                     ty::TypeAndMut {
                         ty: place_ty,
                         mutbl: bk.to_mutbl_lossy()

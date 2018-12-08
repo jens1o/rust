@@ -146,7 +146,7 @@ fn check_rvalue(
         Rvalue::Repeat(operand, _) | Rvalue::Use(operand) => {
             check_operand(tcx, mir, operand, span)
         }
-        Rvalue::Len(place) | Rvalue::Discriminant(place) | Rvalue::Ref(_, _, place) => {
+        Rvalue::Len(place) | Rvalue::Discriminant(place) | Rvalue::Ref(_, place) => {
             check_place(tcx, mir, place, span, PlaceMode::Read)
         }
         Rvalue::Cast(CastKind::Misc, operand, cast_ty) => {

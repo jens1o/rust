@@ -1221,7 +1221,7 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                 };
 
                 let place_ty = place.ty(mir, tcx).to_ty(tcx);
-                let rv_ty = rv.ty(mir, tcx);
+                let rv_ty = self.check_rvalue(mir, rv, location);
                 if let Err(terr) =
                     self.sub_types_or_anon(rv_ty, place_ty, location.to_locations(), category)
                 {
@@ -1254,7 +1254,6 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                     }
                 }
 
-                self.check_rvalue(mir, rv, location);
                 if !self.tcx().features().unsized_locals {
                     let trait_ref = ty::TraitRef {
                         def_id: tcx.lang_items().sized_trait().unwrap(),
@@ -1804,7 +1803,16 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
         }
     }
 
-    fn check_rvalue(&mut self, mir: &Mir<'tcx>, rvalue: &Rvalue<'tcx>, location: Location) {
+    // Returns the type of the rvalue. This is different from rvalue.ty(..) for
+    // Rvalue::Ref: rvalue.ty(..) with always return `&[mut] 'ReErased T` for
+    // Rvalue::Ref, instead this method will get a `ReVar` during borrow
+    // checking.
+    fn check_rvalue(
+        &mut self,
+        mir: &Mir<'tcx>,
+        rvalue: &Rvalue<'tcx>,
+        location: Location,
+    ) -> Ty<'tcx> {
         let tcx = self.tcx();
 
         match rvalue {
@@ -1950,8 +1958,8 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                 }
             }
 
-            Rvalue::Ref(region, _borrow_kind, borrowed_place) => {
-                self.add_reborrow_constraint(location, region, borrowed_place);
+            Rvalue::Ref(borrow_kind, borrowed_place) => {
+                return self.check_borrow(location, *borrow_kind, borrowed_place);
             }
 
             // FIXME: These other cases have to be implemented in future PRs
@@ -1962,6 +1970,8 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
             | Rvalue::UnaryOp(..)
             | Rvalue::Discriminant(..) => {}
         }
+
+        rvalue.ty(mir, tcx)
     }
 
     /// If this rvalue supports a user-given type annotation, then
@@ -2048,12 +2058,15 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
     /// - `location`: the location `L` where the borrow expression occurs
     /// - `borrow_region`: the region `'a` associated with the borrow
     /// - `borrowed_place`: the place `P` being borrowed
-    fn add_reborrow_constraint(
+    fn check_borrow(
         &mut self,
         location: Location,
-        borrow_region: ty::Region<'tcx>,
+        borrow_kind: BorrowKind,
         borrowed_place: &Place<'tcx>,
-    ) {
+    ) -> Ty<'tcx> {
+        let tcx = self.infcx.tcx;
+        let borrowed_ty = borrowed_place.ty(self.mir, tcx).to_ty(tcx);
+
         // These constraints are only meaningful during borrowck:
         let BorrowCheckContext {
             borrow_set,
@@ -2063,24 +2076,42 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
             ..
         } = match self.borrowck_context {
             Some(ref mut borrowck_context) => borrowck_context,
-            None => return,
+            None => {
+                return tcx.mk_ref(
+                    tcx.types.re_erased,
+                    ty::TypeAndMut {
+                        ty: borrowed_ty,
+                        mutbl: borrow_kind.to_mutbl_lossy()
+                    }
+                );
+            },
         };
 
-        // In Polonius mode, we also push a `borrow_region` fact
-        // linking the loan to the region (in some cases, though,
-        // there is no loan associated with this borrow expression --
-        // that occurs when we are borrowing an unsafe place, for
-        // example).
-        if let Some(all_facts) = all_facts {
-            if let Some(borrow_index) = borrow_set.location_map.get(&location) {
-                let region_vid = borrow_region.to_region_vid();
+        // In some cases there is no loan associated with this borrow expression
+        // -- that occurs when we are borrowing an unsafe place, for example.
+        let (borrow_region, borrow_region_vid) = if let Some(borrow_index)
+            = borrow_set.location_map.get(&location)
+        {
+            let borrow_region_vid = borrow_set.borrows[*borrow_index].region;
+
+            // In Polonius mode, we also push a `borrow_region` fact
+            // linking the loan to the region.
+            if let Some(all_facts) = all_facts {
                 all_facts.borrow_region.push((
-                    region_vid,
+                    borrow_region_vid,
                     *borrow_index,
                     location_table.mid_index(location),
                 ));
             }
-        }
+
+            (tcx.mk_region(ty::ReVar(borrow_region_vid)), borrow_region_vid)
+        } else {
+            let origin = NLLRegionVariableOrigin::Existential;
+            let region = self.infcx.next_nll_region_var(origin);
+            debug!("check_borrow: Created new region var {:?} for borrow at {:?}",
+                   region, location);
+            (region, region.to_region_vid())
+        };
 
         // If we are reborrowing the referent of another reference, we
         // need to add outlives relationships. In a case like `&mut
@@ -2090,23 +2121,22 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
         let mut borrowed_place = borrowed_place;
 
         debug!(
-            "add_reborrow_constraint({:?}, {:?}, {:?})",
+            "check_borrow({:?}, {:?}, {:?})",
             location, borrow_region, borrowed_place
         );
         while let Place::Projection(box PlaceProjection { base, elem }) = borrowed_place {
-            debug!("add_reborrow_constraint - iteration {:?}", borrowed_place);
+            debug!("check_borrow - iteration {:?}", borrowed_place);
 
             match *elem {
                 ProjectionElem::Deref => {
-                    let tcx = self.infcx.tcx;
                     let base_ty = base.ty(self.mir, tcx).to_ty(tcx);
 
-                    debug!("add_reborrow_constraint - base_ty = {:?}", base_ty);
+                    debug!("check_borrow - base_ty = {:?}", base_ty);
                     match base_ty.sty {
                         ty::Ref(ref_region, _, mutbl) => {
                             constraints.outlives_constraints.push(OutlivesConstraint {
                                 sup: ref_region.to_region_vid(),
-                                sub: borrow_region.to_region_vid(),
+                                sub: borrow_region_vid,
                                 locations: location.to_locations(),
                                 category: ConstraintCategory::Boring,
                             });
@@ -2166,6 +2196,14 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
             // for the borrow's lifetime.
             borrowed_place = base;
         }
+
+        tcx.mk_ref(
+            borrow_region,
+            ty::TypeAndMut {
+                ty: borrowed_ty,
+                mutbl: borrow_kind.to_mutbl_lossy()
+            },
+        )
     }
 
     fn prove_aggregate_predicates(

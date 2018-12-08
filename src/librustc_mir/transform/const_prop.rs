@@ -519,7 +519,7 @@ impl<'tcx> Visitor<'tcx> for CanConstProp {
     fn visit_local(
         &mut self,
         &local: &Local,
-        context: PlaceContext<'tcx>,
+        context: PlaceContext,
         _: Location,
     ) {
         use rustc::mir::visit::PlaceContext::*;
