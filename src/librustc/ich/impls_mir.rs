@@ -341,8 +341,7 @@ impl<'a, 'gcx> HashStable<StableHashingContext<'a>> for mir::Rvalue<'gcx> {
                 operand.hash_stable(hcx, hasher);
                 val.hash_stable(hcx, hasher);
             }
-            mir::Rvalue::Ref(region, borrow_kind, ref place) => {
-                region.hash_stable(hcx, hasher);
+            mir::Rvalue::Ref(borrow_kind, ref place) => {
                 borrow_kind.hash_stable(hcx, hasher);
                 place.hash_stable(hcx, hasher);
             }

@@ -142,7 +142,7 @@ impl MirPass for CopyPropagation {
 
 fn eliminate_self_assignments<'tcx>(
     mir: &mut Mir<'tcx>,
-    def_use_analysis: &DefUseAnalysis<'tcx>,
+    def_use_analysis: &DefUseAnalysis,
 ) -> bool {
     let mut changed = false;
 
@@ -239,7 +239,7 @@ impl<'tcx> Action<'tcx> {
 
     fn perform(self,
                mir: &mut Mir<'tcx>,
-               def_use_analysis: &DefUseAnalysis<'tcx>,
+               def_use_analysis: &DefUseAnalysis,
                dest_local: Local,
                location: Location)
                -> bool {

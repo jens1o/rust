@@ -38,7 +38,7 @@ use syntax::symbol::InternedString;
 use syntax_pos::{Span, DUMMY_SP};
 use ty::fold::{TypeFoldable, TypeFolder, TypeVisitor};
 use ty::subst::{CanonicalUserSubsts, Subst, Substs};
-use ty::{self, AdtDef, CanonicalTy, ClosureSubsts, GeneratorSubsts, Region, Ty, TyCtxt};
+use ty::{self, AdtDef, CanonicalTy, ClosureSubsts, GeneratorSubsts, Ty, TyCtxt};
 use ty::layout::VariantIdx;
 use util::ppaux;
 
@@ -2165,7 +2165,7 @@ pub enum Rvalue<'tcx> {
     Repeat(Operand<'tcx>, u64),
 
     /// &x or &mut x
-    Ref(Region<'tcx>, BorrowKind, Place<'tcx>),
+    Ref(BorrowKind, Place<'tcx>),
 
     /// length of a [X] or [X;n] value
     Len(Place<'tcx>),
@@ -2318,25 +2318,14 @@ impl<'tcx> Debug for Rvalue<'tcx> {
             UnaryOp(ref op, ref a) => write!(fmt, "{:?}({:?})", op, a),
             Discriminant(ref place) => write!(fmt, "discriminant({:?})", place),
             NullaryOp(ref op, ref t) => write!(fmt, "{:?}({:?})", op, t),
-            Ref(region, borrow_kind, ref place) => {
+            Ref(borrow_kind, ref place) => {
                 let kind_str = match borrow_kind {
                     BorrowKind::Shared => "",
                     BorrowKind::Shallow => "shallow ",
                     BorrowKind::Mut { .. } | BorrowKind::Unique => "mut ",
                 };
 
-                // When printing regions, add trailing space if necessary.
-                let region = if ppaux::verbose() || ppaux::identify_regions() {
-                    let mut region = region.to_string();
-                    if region.len() > 0 {
-                        region.push(' ');
-                    }
-                    region
-                } else {
-                    // Do not even print 'static
-                    String::new()
-                };
-                write!(fmt, "&{}{}{:?}", region, kind_str, place)
+                write!(fmt, "&{}{:?}", kind_str, place)
             }
 
             Aggregate(ref kind, ref places) => {
@@ -3236,8 +3225,8 @@ impl<'tcx> TypeFoldable<'tcx> for Rvalue<'tcx> {
         match *self {
             Use(ref op) => Use(op.fold_with(folder)),
             Repeat(ref op, len) => Repeat(op.fold_with(folder), len),
-            Ref(region, bk, ref place) => {
-                Ref(region.fold_with(folder), bk, place.fold_with(folder))
+            Ref(bk, ref place) => {
+                Ref(bk, place.fold_with(folder))
             }
             Len(ref place) => Len(place.fold_with(folder)),
             Cast(kind, ref op, ty) => Cast(kind, op.fold_with(folder), ty.fold_with(folder)),
@@ -3278,7 +3267,7 @@ impl<'tcx> TypeFoldable<'tcx> for Rvalue<'tcx> {
         match *self {
             Use(ref op) => op.visit_with(visitor),
             Repeat(ref op, _) => op.visit_with(visitor),
-            Ref(region, _, ref place) => region.visit_with(visitor) || place.visit_with(visitor),
+            Ref(_, ref place) => place.visit_with(visitor),
             Len(ref place) => place.visit_with(visitor),
             Cast(_, ref op, ty) => op.visit_with(visitor) || ty.visit_with(visitor),
             BinaryOp(_, ref rhs, ref lhs) | CheckedBinaryOp(_, ref rhs, ref lhs) => {

@@ -77,7 +77,6 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 block.and(Rvalue::Repeat(value_operand, count))
             }
             ExprKind::Borrow {
-                region,
                 borrow_kind,
                 arg,
             } => {
@@ -85,7 +84,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                     BorrowKind::Shared => unpack!(block = this.as_read_only_place(block, arg)),
                     _ => unpack!(block = this.as_place(block, arg)),
                 };
-                block.and(Rvalue::Ref(region, borrow_kind, arg_place))
+                block.and(Rvalue::Ref(borrow_kind, arg_place))
             }
             ExprKind::Binary { op, lhs, rhs } => {
                 let lhs = unpack!(block = this.as_operand(block, scope, lhs));
@@ -259,11 +258,10 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                                             BorrowKind::Mut {
                                                 allow_two_phase_borrow: false,
                                             },
-                                        region,
                                         arg,
                                     } => unpack!(
                                         block = this.limit_capture_mutability(
-                                            upvar.span, upvar.ty, scope, block, arg, region,
+                                            upvar.span, upvar.ty, scope, block, arg,
                                         )
                                     ),
                                     _ => unpack!(block = this.as_operand(block, scope, upvar)),
@@ -505,7 +503,6 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         temp_lifetime: Option<region::Scope>,
         mut block: BasicBlock,
         arg: ExprRef<'tcx>,
-        region: &'tcx ty::RegionKind,
     ) -> BlockAnd<Operand<'tcx>> {
         let this = self;
 
@@ -587,7 +584,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
             block,
             source_info,
             &Place::Local(temp),
-            Rvalue::Ref(region, borrow_kind, arg_place),
+            Rvalue::Ref(borrow_kind, arg_place),
         );
 
         // In constants, temp_lifetime is None. We should not need to drop

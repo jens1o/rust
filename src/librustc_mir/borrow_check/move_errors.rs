@@ -540,7 +540,7 @@ impl<'a, 'gcx, 'tcx> MirBorrowckCtxt<'a, 'gcx, 'tcx> {
                     debug!("borrowed_content_source: stmt={:?}", stmt);
                     // We're only interested in assignments (in particular, where the
                     // assignment came from - was it an `Rc` or `Arc`?).
-                    if let StatementKind::Assign(_, box Rvalue::Ref(_, _, source)) = &stmt.kind {
+                    if let StatementKind::Assign(_, box Rvalue::Ref(_, source)) = &stmt.kind {
                         let ty = source.ty(self.mir, self.infcx.tcx).to_ty(self.infcx.tcx);
                         let ty = match ty.sty {
                             ty::TyKind::Ref(_, ty, _) => ty,

@@ -43,8 +43,9 @@ fn produce_err<'a, 'b: 'a>(data: &'b mut Vec<&'b u32>, value: &'a u32) -> impl B
     let x = move || {
         let value: &'a u32 = value;
         data.push(value);
+        //~^ ERROR unsatisfied lifetime constraints
     };
-    x   //~ ERROR unsatisfied lifetime constraints
+    x
 }
 
 fn main() { }

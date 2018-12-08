@@ -90,7 +90,7 @@ struct RenameLocalVisitor {
 impl<'tcx> MutVisitor<'tcx> for RenameLocalVisitor {
     fn visit_local(&mut self,
                    local: &mut Local,
-                   _: PlaceContext<'tcx>,
+                   _: PlaceContext,
                    _: Location) {
         if *local == self.from {
             *local = self.to;
@@ -103,14 +103,14 @@ struct DerefArgVisitor;
 impl<'tcx> MutVisitor<'tcx> for DerefArgVisitor {
     fn visit_local(&mut self,
                    local: &mut Local,
-                   _: PlaceContext<'tcx>,
+                   _: PlaceContext,
                    _: Location) {
         assert_ne!(*local, self_arg());
     }
 
     fn visit_place(&mut self,
                     place: &mut Place<'tcx>,
-                    context: PlaceContext<'tcx>,
+                    context: PlaceContext,
                     location: Location) {
         if *place == Place::Local(self_arg()) {
             *place = Place::Projection(Box::new(Projection {
@@ -197,14 +197,14 @@ impl<'a, 'tcx> TransformVisitor<'a, 'tcx> {
 impl<'a, 'tcx> MutVisitor<'tcx> for TransformVisitor<'a, 'tcx> {
     fn visit_local(&mut self,
                    local: &mut Local,
-                   _: PlaceContext<'tcx>,
+                   _: PlaceContext,
                    _: Location) {
         assert_eq!(self.remap.get(local), None);
     }
 
     fn visit_place(&mut self,
                     place: &mut Place<'tcx>,
-                    context: PlaceContext<'tcx>,
+                    context: PlaceContext,
                     location: Location) {
         if let Place::Local(l) = *place {
             // Replace an Local in the remap with a generator struct access
@@ -361,7 +361,7 @@ impl<'tcx> Visitor<'tcx> for BorrowedLocals {
     fn visit_rvalue(&mut self,
                     rvalue: &Rvalue<'tcx>,
                     location: Location) {
-        if let Rvalue::Ref(_, _, ref place) = *rvalue {
+        if let Rvalue::Ref(_, ref place) = *rvalue {
             mark_as_borrowed(place, self);
         }
 

@@ -535,8 +535,7 @@ impl<'l, 'b, 'tcx, D> DropCtxt<'l, 'b, 'tcx, D>
         let result = BasicBlockData {
             statements: vec![self.assign(
                 &Place::Local(ref_place),
-                Rvalue::Ref(tcx.types.re_erased,
-                            BorrowKind::Mut { allow_two_phase_borrow: false },
+                Rvalue::Ref(BorrowKind::Mut { allow_two_phase_borrow: false },
                             self.place.clone())
             )],
             terminator: Some(Terminator {
@@ -594,7 +593,6 @@ impl<'l, 'b, 'tcx, D> DropCtxt<'l, 'b, 'tcx, D>
         let one = self.constant_usize(1);
         let (ptr_next, cur_next) = if ptr_based {
             (Rvalue::Ref(
-                tcx.types.re_erased,
                 BorrowKind::Mut { allow_two_phase_borrow: false },
                 Place::Projection(Box::new(Projection {
                     base: Place::Local(cur),
@@ -604,7 +602,6 @@ impl<'l, 'b, 'tcx, D> DropCtxt<'l, 'b, 'tcx, D>
              Rvalue::BinaryOp(BinOp::Offset, copy(&Place::Local(cur)), one))
         } else {
             (Rvalue::Ref(
-                 tcx.types.re_erased,
                  BorrowKind::Mut { allow_two_phase_borrow: false },
                  self.place.clone().index(cur)),
              Rvalue::BinaryOp(BinOp::Add, copy(&Place::Local(cur)), one))
@@ -749,7 +746,6 @@ impl<'l, 'b, 'tcx, D> DropCtxt<'l, 'b, 'tcx, D>
             // cur = tmp as *mut T;
             // end = Offset(cur, len);
             drop_block_stmts.push(self.assign(&tmp, Rvalue::Ref(
-                tcx.types.re_erased,
                 BorrowKind::Mut { allow_two_phase_borrow: false },
                 self.place.clone()
             )));

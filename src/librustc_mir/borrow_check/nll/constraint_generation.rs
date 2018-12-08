@@ -42,6 +42,10 @@ pub(super) fn generate_constraints<'cx, 'gcx, 'tcx>(
     for (bb, data) in mir.basic_blocks().iter_enumerated() {
         cg.visit_basic_block_data(bb, data);
     }
+
+    for borrow in &borrow_set.borrows {
+        cg.liveness_constraints.add_element(borrow.region, borrow.reserve_location);
+    }
 }
 
 /// 'cg = the duration of the constraint generation process itself.
@@ -63,13 +67,6 @@ impl<'cg, 'cx, 'gcx, 'tcx> Visitor<'tcx> for ConstraintGeneration<'cg, 'cx, 'gcx
     fn visit_substs(&mut self, substs: &&'tcx Substs<'tcx>, location: Location) {
         self.add_regular_live_constraint(*substs, location);
         self.super_substs(substs);
-    }
-
-    /// We sometimes have `region` within an rvalue, or within a
-    /// call. Make them live at the location where they appear.
-    fn visit_region(&mut self, region: &ty::Region<'tcx>, location: Location) {
-        self.add_regular_live_constraint(*region, location);
-        self.super_region(region);
     }
 
     /// We sometimes have `ty` within an rvalue, or within a

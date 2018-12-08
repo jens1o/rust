@@ -208,6 +208,7 @@ pub(in borrow_check) fn compute_regions<'cx, 'gcx, 'tcx>(
         &mir,
         &regioncx,
         &closure_region_requirements,
+        borrow_set,
     );
 
     // We also have a `#[rustc_nll]` annotation that causes us to dump
@@ -223,6 +224,7 @@ fn dump_mir_results<'a, 'gcx, 'tcx>(
     mir: &Mir<'tcx>,
     regioncx: &RegionInferenceContext,
     closure_region_requirements: &Option<ClosureRegionRequirements>,
+    borrow_set: &BorrowSet<'tcx>,
 ) {
     if !mir_util::dump_enabled(infcx.tcx, "nll", source) {
         return;
@@ -240,6 +242,13 @@ fn dump_mir_results<'a, 'gcx, 'tcx>(
                 // Before the CFG, dump out the values for each region variable.
                 PassWhere::BeforeCFG => {
                     regioncx.dump_mir(out)?;
+
+                    // These regions aren't part of the MIR, so list them now.
+                    writeln!(out, "|")?;
+                    writeln!(out, "Tracked Borrows")?;
+                    for borrow in &borrow_set.borrows {
+                        writeln!(out, "| {} at {:?}", borrow, borrow.reserve_location)?;
+                    }
 
                     if let Some(closure_region_requirements) = closure_region_requirements {
                         writeln!(out, "|")?;

@@ -81,15 +81,6 @@ impl<'a, 'gcx, 'tcx> MutVisitor<'tcx> for NLLVisitor<'a, 'gcx, 'tcx> {
         debug!("visit_substs: substs={:?}", substs);
     }
 
-    fn visit_region(&mut self, region: &mut ty::Region<'tcx>, location: Location) {
-        debug!("visit_region(region={:?}, location={:?})", region, location);
-
-        let old_region = *region;
-        *region = self.renumber_regions(&old_region);
-
-        debug!("visit_region: region={:?}", region);
-    }
-
     fn visit_const(&mut self, constant: &mut &'tcx ty::Const<'tcx>, _location: Location) {
         *constant = self.renumber_regions(&*constant);
     }

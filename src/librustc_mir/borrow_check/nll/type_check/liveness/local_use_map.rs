@@ -148,7 +148,7 @@ impl LocalUseMapBuild<'_, '_> {
 }
 
 impl Visitor<'tcx> for LocalUseMapBuild<'_, '_> {
-    fn visit_local(&mut self, &local: &Local, context: PlaceContext<'tcx>, location: Location) {
+    fn visit_local(&mut self, &local: &Local, context: PlaceContext, location: Location) {
         if let Some(local_with_region) = self.local_use_map.liveness_map.from_local(local) {
             match categorize(context) {
                 Some(DefUse::Def) => self.insert_def(local_with_region, location),
